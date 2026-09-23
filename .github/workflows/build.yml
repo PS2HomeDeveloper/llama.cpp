@@ -39,8 +39,14 @@ jobs:
       - name: Strip binaries
         run: strip --strip-unneeded build/bin/* || true
 
+      - name: Organize into bin/lib
+        run: |
+          mkdir -p package/bin package/lib
+          find build/bin -maxdepth 1 -type f -executable -exec mv {} package/bin/ \;
+          mv build/bin/*.so* package/lib/ 2>/dev/null || true
+
       - name: Compress with xz
-        run: tar -cJf llama-arm64.tar.xz -C build/bin .
+        run: tar -cJf llama-arm64.tar.xz -C package bin lib
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4

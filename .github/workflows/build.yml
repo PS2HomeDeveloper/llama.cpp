@@ -32,6 +32,9 @@ jobs:
           -DLLAMA_BUILD_TESTS=OFF
           -DLLAMA_BUILD_EXAMPLES=OFF
           -DLLAMA_CURL=OFF
+          -DGGML_NATIVE=OFF
+          -DCMAKE_C_FLAGS="-mcpu=cortex-a76.cortex-a55+crc+crypto+dotprod+noi8mm+nosve+nosme"
+          -DCMAKE_CXX_FLAGS="-mcpu=cortex-a76.cortex-a55+crc+crypto+dotprod+noi8mm+nosve+nosme"
 
       - name: Build
         run: cmake --build build --config Release -j$(nproc)

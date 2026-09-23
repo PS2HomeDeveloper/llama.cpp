@@ -14,16 +14,36 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y cmake build-essential libcurl4-openssl-dev libssl-dev
+          sudo apt install -y cmake build-essential ninja-build ccache libcurl4-openssl-dev libssl-dev
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
 
       - name: Configure
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DGGML_CCACHE=ON
+          -DLLAMA_BUILD_TESTS=OFF
+          -DLLAMA_BUILD_EXAMPLES=OFF
+          -DLLAMA_CURL=OFF
 
       - name: Build
         run: cmake --build build --config Release -j$(nproc)
+
+      - name: Strip binaries
+        run: strip --strip-unneeded build/bin/* || true
+
+      - name: Compress with xz
+        run: tar -cJf llama-arm64.tar.xz -C build/bin .
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: llama-cpp-arm64-binaries
-          path: build/bin/
+          path: llama-arm64.tar.xz

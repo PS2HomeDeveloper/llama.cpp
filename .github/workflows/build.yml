@@ -42,8 +42,8 @@ jobs:
       - name: Organize into bin/lib
         run: |
           mkdir -p package/bin package/lib
-          find build/bin -maxdepth 1 -type f -executable -exec mv {} package/bin/ \;
           mv build/bin/*.so* package/lib/ 2>/dev/null || true
+          find build/bin -maxdepth 1 -type f -exec mv {} package/bin/ \;
 
       - name: Compress with xz
         run: tar -cJf llama-arm64.tar.xz -C package bin lib

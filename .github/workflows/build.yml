@@ -1,10 +1,10 @@
-name: Build llama.cpp ARM64
+name: Build llama.cpp
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-arm64:
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -20,9 +20,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ github.sha }}
+          key: ccache-${{ runner.os }}-arm64-${{ github.sha }}
           restore-keys: |
-            ccache-${{ runner.os }}-
+            ccache-${{ runner.os }}-arm64-
 
       - name: Configure
         run: >
@@ -49,10 +49,87 @@ jobs:
           find build/bin -maxdepth 1 -type f -exec mv {} package/bin/ \;
 
       - name: Compress with xz
-        run: tar -cJf llama-arm64.tar.xz -C package bin lib
+        run: tar -cJf llama_linux_ARM64.tar.xz -C package bin lib
 
       - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
           name: llama-cpp-arm64-binaries
-          path: llama-arm64.tar.xz
+          path: llama_linux_ARM64.tar.xz
+
+  build-x86_64:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y cmake build-essential ninja-build ccache libcurl4-openssl-dev libssl-dev
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-x86_64-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-x86_64-
+
+      - name: Configure
+        run: >
+          cmake -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DGGML_CCACHE=ON
+          -DLLAMA_BUILD_TESTS=OFF
+          -DLLAMA_BUILD_EXAMPLES=OFF
+          -DLLAMA_CURL=OFF
+
+      - name: Build
+        run: cmake --build build --config Release -j$(nproc)
+
+      - name: Strip binaries
+        run: strip --strip-unneeded build/bin/* || true
+
+      - name: Organize into bin/lib
+        run: |
+          mkdir -p package/bin package/lib
+          mv build/bin/*.so* package/lib/ 2>/dev/null || true
+          find build/bin -maxdepth 1 -type f -exec mv {} package/bin/ \;
+
+      - name: Compress with xz
+        run: tar -cJf llama_linux_x86_64.tar.xz -C package bin lib
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-cpp-x86_64-binaries
+          path: llama_linux_x86_64.tar.xz
+
+  release:
+    needs: [build-arm64, build-x86_64]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download ARM64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: llama-cpp-arm64-binaries
+          path: dist
+
+      - name: Download x86_64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: llama-cpp-x86_64-binaries
+          path: dist
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "1.0.0"
+          files: |
+            dist/llama_linux_ARM64.tar.xz
+            dist/llama_linux_x86_64.tar.xz
